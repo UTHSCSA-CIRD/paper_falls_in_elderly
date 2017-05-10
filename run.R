@@ -29,6 +29,28 @@ if(!exists('d0')) {
 }
 #' ## Set variables, 2nd pass
 demcols <- c(demcols,subset(dd,rule=='ethnicity')$colname);
+syn_diag_active <- list(
+  c('v014_rsprtr_unspcfd','v048_rsprtr_unspcfd'),
+  c('v015_brnchts_brnchlts','v049_Act_brnchts'),
+  c('v017_rhnts_unspcfd','v050_Vsmtr_rhnts'),
+  c('v002_Dsrdrs_mtblsm','v039_lprtn_lpdms'),
+  c('v018_Dss_esphgs','v051_Gstr_esphgl'),
+  c('v022_infctn_spcfd','v054_dsrdrs_urnr'),
+  c('v033_Smptms_invlvng','v059_R_Plr'),
+  c('v020_Dvrtcl_cln','v052_Dvrtclr_intstn'),
+  c('v032_invlvng_dgstv','v057_invlvng_dgstv'),
+  c('v021_Cnstptn','v053_K_Cnstptn'),
+  c('v003_elctrlt_acd_bs','v040_elctrlt_acd_bs'),
+  c('v005_Dmnt_unspcfd','v043_Unspcfd_dmnt'),
+  c('v008_crbrl_dgnrtns','v009_Alzhmr_s_ds','v046_Alzhmr_s_ds'),
+  c('v027_Abnrml_undrwght','v026_mtblsm_dvlpmnt','v062_Smptms_cncrng'),
+  c('v024_Slp_dstrbncs','v047_G_Slp_dsrdrs'),
+  c('v007_Dprsv_clsfd','v044_dprsv_dsrdr'),
+  c('v006_dsctv_smtfrm','v045_anxt_dsrdrs'),
+  c('v001_Vtmn_dfcnc','v038_Vtmn_dfcnc'),
+  c('v000_Dfcnc_cmpnts','v037_Dfcnc_vtmns'),
+  c('v025_Mls_and_ftg','v061_Mls_and_ftg')
+);
 #' ## Clean up data
 if('d0' %in% rebuild) {
   # Remove impossible START_DATEs (2 of them)
@@ -50,6 +72,10 @@ if('d0' %in% rebuild) {
     ifelse(grepl('\'H\'',.),'H',.) %>% 
     ifelse(is.na(.),ifelse(is.na(d0$v064_VTMN_TTL_1990_1_num),NA,'OK'),.) -> 
     d0$v064_VTMN_TTL_1990_1_info;
+  for(ii in syn_diag_active) {
+    d0[,ii[2]]<-apply(d0[,ii],1,any);
+    d0[,ii[1]]<-NULL
+    };
   save.image(session);
 }
 #' ## Exploration of possibly combinable variables
