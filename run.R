@@ -52,3 +52,12 @@ if('d0' %in% rebuild) {
     d0$v064_VTMN_TTL_1990_1_info;
   save.image(session);
 }
+#' ## Exploration of possibly combinable variables
+#' The active diagnoses
+d0[,grep('_inactive',subset(dd,rule=='diag')$colname,val=T,invert = T)] %>%
+  as.matrix()+0 %>% varclus(similarity='bothpos') -> vc1;
+plot(vc1$hclust);
+#' The inactive diagnoses
+d0[,grep('_inactive',subset(dd,rule=='diag')$colname,val=T)] %>%
+  as.matrix()+0 %>% varclus(similarity='bothpos') -> vc2;
+plot(vc2$hclust);
