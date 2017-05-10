@@ -99,7 +99,5 @@ if('d0' %in% rebuild) {
 }
 #' ## Exploration of possibly combinable variables
 #' The active diagnoses
-subset(dd,rule=='diag'&present)$colname %>%
-  intersect(names(d0)) %>% `[`(d0,,.) %>% as.matrix(.)+0 -> .foo
-  varclus(.foo,similarity='bothpos') -> vc1;
+varclus(as.matrix(d0[,sapply(d0,class)=='logical'])+0,similarity='bothpos') -> vc1;
 plot(vc1$hclust);
