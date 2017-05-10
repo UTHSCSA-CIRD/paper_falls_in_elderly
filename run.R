@@ -77,7 +77,12 @@ if('d0' %in% rebuild) {
   # Race: white, black, asian, other
   d0$race_cd <- cl_bintail(d0$race_cd,4,2);
   # replace all diagnoses with T/F values
-  d0[,subset(dd,rule=='diag'&present)$colname]<-sapply(d0[,subset(dd,rule=='diag'&present)$colname],function(xx) !is.na(xx));
+  # code = visit type
+  # UNKNOWN_DATA_ELEMENT = medications
+  cols2tf <- subset(dd,rule%in%c('diag','code','UNKNOWN_DATA_ELEMENT','codemod')&present)$colname;
+  d0[,cols2tf]<-sapply(d0[,cols2tf],function(xx) !is.na(xx));
+  # same with office visits
+  d0[,subset(dd,rule=='code'&present)$colname]<-sapply(d0[,subset(dd,rule=='code'&present)$colname],function(xx) !is.na(xx));
   # Flag aberrant values
   ifelse(grepl('\'TNP\'',d0$v064_VTMN_TTL_1990_1_info)
          ,NA,d0$v064_VTMN_TTL_1990_1_info) %>% 
