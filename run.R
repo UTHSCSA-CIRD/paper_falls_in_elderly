@@ -160,7 +160,6 @@ lines(sort(c_uniwei),type='s');
 sort(c_unicox) %>%  names %>% paste(collapse='+') %>% 
   paste('coxph(Surv(tt,cens)~',.,'+agestart,data=d2)') %>% parse(text=.) %>% 
   eval -> stepstart;
-
 #' ## Interactions
 #' There's no point in considering an interaction of binary variables if if its 
 #' component terms hardly ever co-occur. So we need to narrow down the list of
@@ -172,3 +171,14 @@ for(kk in predictors)
 ints<-sort(unlist(ints));
 plot(ints,type='s');
 intpredictors <- tail(ints,5);
+paste(intpredictors,collapse='+') %>% 
+  paste0('update.formula(stepstart$call$formula,.~.:(',.,'))') %>% 
+  formula -> fm_upper;
+paste(predictors,collapse='+') %>% 
+  paste0('stepAIC(update(cxm,.~agestart),scope=list(lower=~1,upper=~',.,'),
+         direction="both")') %>% 
+  parse(text=.) %>% eval -> coxaic1;
+paste(intpredictors,collapse = '+') %>% 
+  paste0('stepAIC(update(foo,.~.-agestart),
+         scope=list(lower=~1,upper=~(.+',.,')^2+agestart),direction="both")') %>% 
+  parse(text=.) %>% eval -> coxaic2;
