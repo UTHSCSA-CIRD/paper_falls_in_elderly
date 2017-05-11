@@ -133,3 +133,10 @@ if('d0' %in% rebuild) {
 #' The active diagnoses
 varclus(as.matrix(d0[,sapply(d0,class)=='logical'])+0,similarity='bothpos') -> vc1;
 plot(vc1$hclust);
+#' ## Univariate models
+predictors <- grep('_inactive',names(d2)[sapply(d2,class)=='logical'],inv=T,val=T);
+paste0("update(cxm,.~",predictors,")") %>% 
+  sapply(function(xx) parse(text=xx)) %>% 
+  sapply(eval,simplify=F) -> unicox;
+#' ## How good are they?
+sort(sapply(unicox,function(xx) summary(xx)$concordance[1]));
