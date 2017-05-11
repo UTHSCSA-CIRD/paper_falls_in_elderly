@@ -170,12 +170,12 @@ for(kk in predictors)
   ints[[kk]]<-sum(d2[unlist(d2[,kk]),setdiff(predictors,kk)]+0);
 ints<-sort(unlist(ints));
 plot(ints,type='s');
-intpredictors <- tail(ints,5);
-paste(intpredictors,collapse='+') %>% 
-  paste0('update.formula(stepstart$call$formula,.~.:(',.,'))') %>% 
-  formula -> fm_upper;
+intpredictors <- names(tail(ints,5));
+# paste(intpredictors,collapse='+') %>% 
+#   paste0('update.formula(stepstart$call$formula,.~.:(',.,'))') %>% 
+#   formula -> fm_upper;
 paste(predictors,collapse='+') %>% 
-  paste0('stepAIC(update(cxm,.~agestart),scope=list(lower=~1,upper=~',.,'),
+  paste0('stepAIC(update(cxm,.~agestart),scope=list(lower=~1,upper=~.+',.,'),
          direction="both")') %>% 
   parse(text=.) %>% eval -> coxaic1;
 paste(intpredictors,collapse = '+') %>% 
