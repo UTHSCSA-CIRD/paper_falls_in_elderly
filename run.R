@@ -135,8 +135,11 @@ varclus(as.matrix(d0[,sapply(d0,class)=='logical'])+0,similarity='bothpos') -> v
 plot(vc1$hclust);
 #' ## Univariate models
 predictors <- grep('_inactive',names(d2)[sapply(d2,class)=='logical'],inv=T,val=T);
+cxm <- coxph(formula = Surv(tt, cens) ~ 1, data = d2);
+wbm <- survreg(formula = Surv(tt, cens) ~ 1, data = d2);
 paste0("update(cxm,.~",predictors,")") %>% 
   sapply(function(xx) parse(text=xx)) %>% 
   sapply(eval,simplify=F) -> unicox;
-#' ## How good are they?
+paste0("update(wbm,.~",predictors,")") %>% sapply(function(xx) parse(text=xx)) %>% sapply(eval,simplify=F) -> uniwei;
+#' ## How good are they? 
 sort(sapply(unicox,function(xx) summary(xx)$concordance[1]));
