@@ -67,6 +67,15 @@ syn_diag_active <- list(
 if('d0' %in% rebuild) {
   # Remove impossible START_DATEs (2 of them)
   d0 <- subset(d0,age_at_visit_days > 0);
+  # The following command shows the first occurrences o TRUE in the two inactive 
+  # falls columns and the 'real' falls column (v065). If the first inactive dates 
+  # are earlier than the first real event, those are IDs to toss because they are
+  # patients who may have come in already after they fell for the first time.
+  subset(summarise(group_by(d0,patient_num)
+                   ,v065in=min(which(v065_trpng_stmblng_inactive))
+                   ,v041in=min(which(v041_ACCDNTL_FLLS_inactive))
+                   ,v065=min(which(v065_trpng_stmblng)))
+         ,v065>v065in|v065>v041in)$patient_num -> inactive_first;
   # Drop non-informative columns
   d0[,cols2drop] <- NULL;
   dd[dd$colname%in%cols2drop,'present'] <- F;
