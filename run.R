@@ -80,10 +80,11 @@ if('d0' %in% rebuild) {
   # Race: white, black, asian, other
   d0$race_cd <- cl_bintail(d0$race_cd,4,2);
   # replace all diagnoses with T/F values
-  # code = visit type
+  # DON'T USE: code = visit type
+  # I think visit type has values of '' instead of NA, so always true
   # UNKNOWN_DATA_ELEMENT = medications
   cols2tf <- subset(
-    dd,rule%in%c('diag','code','UNKNOWN_DATA_ELEMENT','codemod')&present)$colname;
+    dd,rule%in%c('diag','UNKNOWN_DATA_ELEMENT','codemod')&present)$colname;
   d0[,cols2tf]<-sapply(d0[,cols2tf],function(xx) !is.na(xx));
   # same with office visits
   d0[,subset(dd,rule=='code'&present)$colname]<-sapply(
@@ -127,19 +128,47 @@ if('d0' %in% rebuild) {
   # d2$cens <- ifelse(is.na(d2$cens),0,d2$cens)
   # instead, though, we'll remove them
   d2 <- subset(d2,!is.na(cens));
+  rebuild<-c();
   save.image(session);
 }
 #' ## Exploration of possibly combinable variables
 #' The active diagnoses
-varclus(as.matrix(d0[,sapply(d0,class)=='logical'])+0,similarity='bothpos') -> vc1;
-plot(vc1$hclust);
 #' ## Univariate models
 predictors <- grep('_inactive',names(d2)[sapply(d2,class)=='logical'],inv=T,val=T);
+predictors <- grep('_Ofc_Vst$|_Apntmnt$|_Prcdr$|_trpng_stmblng$',predictors,inv=T,val=T);
+varclus(as.matrix(d2[,predictors])+0,similarity='bothpos') -> vc1;
+plot(vc1$hclust);
 cxm <- coxph(formula = Surv(tt, cens) ~ 1, data = d2);
 wbm <- survreg(formula = Surv(tt, cens) ~ 1, data = d2);
 paste0("update(cxm,.~",predictors,")") %>% 
   sapply(function(xx) parse(text=xx)) %>% 
   sapply(eval,simplify=F) -> unicox;
-paste0("update(wbm,.~",predictors,")") %>% sapply(function(xx) parse(text=xx)) %>% sapply(eval,simplify=F) -> uniwei;
+paste0("update(wbm,.~",predictors,")") %>% 
+  sapply(function(xx) parse(text=xx)) %>% 
+  sapply(eval,simplify=F) -> uniwei;
 #' ## How good are they? 
-sort(sapply(unicox,function(xx) summary(xx)$concordance[1]));
+c_unicox <- sapply(unicox,function(xx) summary(xx)$concordance[1]);
+c_uniwei <- sapply(uniwei,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d2)$concord);
+names(unicox) <- names(uniwei) <- names(c_unicox) <- names(c_uniwei) <- predictors;
+#' There seems to be an inverse relationship between concordances for Weibull and Cox
+#' I don't know why that is.
+plot(c_unicox,c_uniwei);
+#' Overall, cox (red) seems to perform better.
+plot(sort(c_unicox),type='s',col='red',ylim=range(c(c_unicox,c_uniwei)),ylab='Concordance');
+lines(sort(c_uniwei),type='s');
+#' ## Our starting model (for stepwise selection)
+sort(c_unicox) %>%  names %>% paste(collapse='+') %>% 
+  paste('coxph(Surv(tt,cens)~',.,'+agestart,data=d2)') %>% parse(text=.) %>% 
+  eval -> stepstart;
+
+#' ## Interactions
+#' There's no point in considering an interaction of binary variables if if its 
+#' component terms hardly ever co-occur. So we need to narrow down the list of
+#' candidate participants in such interactions. We step through each predictor
+#' and count the total number of other predictors that co-occur with it.
+ints<-list();
+for(kk in predictors) 
+  ints[[kk]]<-sum(d2[unlist(d2[,kk]),setdiff(predictors,kk)]+0);
+ints<-sort(unlist(ints));
+plot(ints,type='s');
+intpredictors <- tail(ints,5);
