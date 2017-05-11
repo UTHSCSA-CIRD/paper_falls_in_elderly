@@ -37,6 +37,9 @@ if(!exists('d0')) {
   rebuild <- c(rebuild,'d0');
   d0 <- read_csv(inputdata,na='');
 }
+#' Is the data already arranged in order of increasing patient_num and age? The
+#' when uncommented, following code should return TRUE if it is (and it does)
+# all.equal(d0,arrange(d0,patient_num,age_at_visit_days))
 #' ## Set variables, 2nd pass
 demcols <- c(demcols,subset(dd,rule=='ethnicity')$colname);
 syn_diag_active <- list(
@@ -70,12 +73,14 @@ if('d0' %in% rebuild) {
   # The following command shows the first occurrences o TRUE in the two inactive 
   # falls columns and the 'real' falls column (v065). If the first inactive dates 
   # are earlier than the first real event, those are IDs to toss because they are
-  # patients who may have come in already after they fell for the first time.
+  # patients who may have come in after they alread fell for the first time. Also
+  # removing patients whose very first visit is in connection with a fall
   subset(summarise(group_by(d0,patient_num)
                    ,v065in=min(which(v065_trpng_stmblng_inactive))
                    ,v041in=min(which(v041_ACCDNTL_FLLS_inactive))
                    ,v065=min(which(v065_trpng_stmblng)))
-         ,v065>v065in|v065>v041in)$patient_num -> inactive_first;
+         ,v065>v065in|v065>v041in|v065==1)$patient_num -> inactive_first;
+  d0 <- subset(d0,!patient_num%in%inactive_first);
   # Drop non-informative columns
   d0[,cols2drop] <- NULL;
   dd[dd$colname%in%cols2drop,'present'] <- F;
@@ -88,10 +93,12 @@ if('d0' %in% rebuild) {
   # replace all diagnoses with T/F values
   # code = visit type
   # UNKNOWN_DATA_ELEMENT = medications
-  cols2tf <- subset(dd,rule%in%c('diag','code','UNKNOWN_DATA_ELEMENT','codemod')&present)$colname;
+  cols2tf <- subset(
+    dd,rule%in%c('diag','code','UNKNOWN_DATA_ELEMENT','codemod')&present)$colname;
   d0[,cols2tf]<-sapply(d0[,cols2tf],function(xx) !is.na(xx));
   # same with office visits
-  d0[,subset(dd,rule=='code'&present)$colname]<-sapply(d0[,subset(dd,rule=='code'&present)$colname],function(xx) !is.na(xx));
+  d0[,subset(dd,rule=='code'&present)$colname]<-sapply(
+    d0[,subset(dd,rule=='code'&present)$colname],function(xx) !is.na(xx));
   # Flag aberrant values
   ifelse(grepl('\'TNP\'',d0$v064_VTMN_TTL_1990_1_info)
          ,NA,d0$v064_VTMN_TTL_1990_1_info) %>% 
@@ -104,6 +111,22 @@ if('d0' %in% rebuild) {
     d0[,ii[-1]]<-NULL;
     dd[dd$colname%in%ii[-1],'present'] <- F;
     };
+  # create the event indicators
+  group_by(d0,patient_num) %>% 
+    mutate(tt=age_at_visit_days
+           ,which_event=cumsum(v065_trpng_stmblng)
+           ,cens=lead(which_event)
+           # preserving for each individual their age at first visit
+           ,agestart=min(age_at_visit_days)) -> d1; # 100072 x 56
+  # d1 = dataset with cumulative counts and censoring indicators for all falls
+  # d2 = dataset with observations _prior_ to the first event only (or where no
+  # events have occurred)
+  d2 <- subset(d1,which_event==0);  # 87110 x 56
+  # to prevent individuals who only had one visit and it was not in connection
+  # with a fracture from being treated as missing data
+  # d2$cens <- ifelse(is.na(d2$cens),0,d2$cens)
+  # instead, though, we'll remove them
+  d2 <- subset(d2,!is.na(cens));
   save.image(session);
 }
 #' ## Exploration of possibly combinable variables
