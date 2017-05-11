@@ -70,17 +70,6 @@ syn_diag_active <- list(
 if('d0' %in% rebuild) {
   # Remove impossible START_DATEs (2 of them)
   d0 <- subset(d0,age_at_visit_days > 0);
-  # The following command shows the first occurrences o TRUE in the two inactive 
-  # falls columns and the 'real' falls column (v065). If the first inactive dates 
-  # are earlier than the first real event, those are IDs to toss because they are
-  # patients who may have come in after they alread fell for the first time. Also
-  # removing patients whose very first visit is in connection with a fall
-  subset(summarise(group_by(d0,patient_num)
-                   ,v065in=min(which(v065_trpng_stmblng_inactive))
-                   ,v041in=min(which(v041_ACCDNTL_FLLS_inactive))
-                   ,v065=min(which(v065_trpng_stmblng)))
-         ,v065>v065in|v065>v041in|v065==1)$patient_num -> inactive_first;
-  d0 <- subset(d0,!patient_num%in%inactive_first);
   # Drop non-informative columns
   d0[,cols2drop] <- NULL;
   dd[dd$colname%in%cols2drop,'present'] <- F;
@@ -122,6 +111,17 @@ if('d0' %in% rebuild) {
   # d2 = dataset with observations _prior_ to the first event only (or where no
   # events have occurred)
   d2 <- subset(d1,which_event==0);  # 87110 x 56
+  subset(summarise(d2
+                   ,v065in=min(which(v065_trpng_stmblng_inactive))
+                   ,v041in=min(which(v041_ACCDNTL_FLLS_inactive))
+                   ,v065=min(which(v065_trpng_stmblng)))
+         ,v065>v065in|v065>v041in|v065==1)$patient_num -> inactive_first;
+  # The following command shows the first occurrences o TRUE in the two inactive 
+  # falls columns and the 'real' falls column (v065). If the first inactive dates 
+  # are earlier than the first real event, those are IDs to toss because they are
+  # patients who may have come in after they alread fell for the first time. Also
+  # removing patients whose very first visit is in connection with a fall
+  d2 <- subset(d2,!patient_num%in%inactive_first);
   # to prevent individuals who only had one visit and it was not in connection
   # with a fracture from being treated as missing data
   # d2$cens <- ifelse(is.na(d2$cens),0,d2$cens)
