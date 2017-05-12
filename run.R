@@ -201,7 +201,7 @@ paste(predictors,collapse = '+') %>%
 paste(predictors,collapse = '+') %>% 
   paste0('stepAIC(update(cxm,data=d3)
          ,scope=list(lower=.~1,upper=.~(',.,')^2),direction="both")') %>%
-  parse(text=.) %>% eval -> coxaic3; save.image(session);
+  parse(text=.) %>% eval -> coxaic4; save.image(session);
 
 
 d3$coxaic2 <- predict(coxaic2,type = 'lp');
