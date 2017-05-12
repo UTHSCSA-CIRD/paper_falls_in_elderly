@@ -182,3 +182,4 @@ paste(intpredictors,collapse = '+') %>%
   paste0('stepAIC(update(foo,.~.-agestart),
          scope=list(lower=~1,upper=~(.+',.,')^2+agestart),direction="both")') %>% 
   parse(text=.) %>% eval -> coxaic2;
+d2$coxaic2 <- predict(coxaic2,type = 'lp');
