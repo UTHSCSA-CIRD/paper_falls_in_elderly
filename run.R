@@ -155,12 +155,12 @@ c_unicox <- sapply(unicox,function(xx) summary(xx)$concordance[1]);
 c_unicox3 <- sapply(unicox3,function(xx) summary(xx)$concordance[1]);
 c_uniwei <- 1-sapply(uniwei,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d2)$concord);
 c_uniwei3 <- 1-sapply(uniwei3,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d3)$concord);
-names(unicox) <- names(uniwei) <- names(c_unicox) <- names(c_uniwei) <- predictors;
+names(unicox) <- names(uniwei) <- names(c_unicox) <- names(c_uniwei) <- names(c_unicox3) <- names(c_uniwei3) <- predictors;
 #' There seems to be an inverse relationship between concordances for Weibull and Cox
 #' I don't know why that is.
 plot(c_unicox,c_uniwei); point(c_unicox3,c_uniwei3);
 #' Overall, cox (red) seems to perform better.
-plot(sort(c_unicox),type='s',col='red',ylim=range(c(c_unicox,c_uniwei)),ylab='Concordance');
+plot(sort(c_unicox),type='s',col='red',ylim=range(c(c_unicox,c_uniwei,c_unicox3,c_uniwei3)),ylab='Concordance');
 lines(sort(c_uniwei),type='s');
 lines(sort(c_unicox3),type='s',lty=2,col='red');
 lines(sort(c_uniwei3),type='s',lty=2);
@@ -190,4 +190,9 @@ paste(intpredictors,collapse = '+') %>%
   paste0('stepAIC(update(coxaic1,.~.-agestart),
          scope=list(lower=~1,upper=~(.+',.,')^2+agestart),direction="both")') %>% 
   parse(text=.) %>% eval -> coxaic2;
+paste(predictors,collapse = '+') %>% 
+  paste0('stepAIC(update(cxm,data=d3)
+         ,scope=list(lower=.~1,upper=.~(agestart+',.,')^2),direction="both")') %>%
+  parse(text=.) %>% eval -> coxaic3; save.image(session);
+
 d2$coxaic2 <- predict(coxaic2,type = 'lp');
