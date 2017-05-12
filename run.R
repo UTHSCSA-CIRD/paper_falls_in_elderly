@@ -138,6 +138,8 @@ predictors <- grep('_inactive',names(d2)[sapply(d2,class)=='logical'],inv=T,val=
 predictors <- grep('_Ofc_Vst$|_Apntmnt$|_Prcdr$|_trpng_stmblng$',predictors,inv=T,val=T);
 d2$npred <- rowSums(d2[,predictors]);
 d3 <- subset(d2,npred>0|v055_Ofc_Vst|v056_Prcdr|cens>0);
+#' The `patient_num`s of the patients who had an event, for later use in validation
+fallpats <- subset(d3,cens==1)$patient_num;
 varclus(as.matrix(d3[,predictors])+0,similarity='bothpos') -> vc1;
 plot(vc1$hclust);
 cxm <- coxph(formula = Surv(tt, cens) ~ 1, data = d2);
@@ -182,17 +184,24 @@ intpredictors <- names(tail(ints,5));
 # paste(intpredictors,collapse='+') %>% 
 #   paste0('update.formula(stepstart$call$formula,.~.:(',.,'))') %>% 
 #   formula -> fm_upper;
-paste(predictors,collapse='+') %>% 
-  paste0('stepAIC(update(cxm,.~agestart,data=d3),scope=list(lower=~1,upper=~.+',.,'),
-         direction="both")') %>% 
-  parse(text=.) %>% eval -> coxaic1;
-paste(intpredictors,collapse = '+') %>% 
-  paste0('stepAIC(update(coxaic1,.~.-agestart),
-         scope=list(lower=~1,upper=~(.+',.,')^2+agestart),direction="both")') %>% 
-  parse(text=.) %>% eval -> coxaic2;
+# paste(predictors,collapse='+') %>% 
+#   paste0('stepAIC(update(cxm,.~agestart,data=d3),scope=list(lower=~1,upper=~.+',.,'),
+#          direction="both")') %>% 
+#   parse(text=.) %>% eval -> coxaic1;
+# paste(intpredictors,collapse = '+') %>% 
+#   paste0('stepAIC(update(coxaic1,.~.-agestart),
+#          scope=list(lower=~1,upper=~(.+',.,')^2+agestart),direction="both")') %>% 
+#   parse(text=.) %>% eval -> coxaic2;
+#' Nevermind the above. We can do it in one step, if we run it on a server...
 paste(predictors,collapse = '+') %>% 
   paste0('stepAIC(update(cxm,data=d3)
          ,scope=list(lower=.~1,upper=.~(agestart+',.,')^2),direction="both")') %>%
   parse(text=.) %>% eval -> coxaic3; save.image(session);
+#' And here is the non-age version...
+paste(predictors,collapse = '+') %>% 
+  paste0('stepAIC(update(cxm,data=d3)
+         ,scope=list(lower=.~1,upper=.~(',.,')^2),direction="both")') %>%
+  parse(text=.) %>% eval -> coxaic3; save.image(session);
 
-d2$coxaic2 <- predict(coxaic2,type = 'lp');
+
+d3$coxaic2 <- predict(coxaic2,type = 'lp');
