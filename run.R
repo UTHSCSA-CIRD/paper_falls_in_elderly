@@ -18,7 +18,6 @@ rebuild <- c();
 if(!exists('dd')) {
   rebuild <- c(rebuild,'dd');
   dd <- read_csv(datadict,na='');
-  dd$present <- T;
 }
 cols2drop <- c('start_date','birth_date','sex_cd','v063_VTMN_D_info');
 #' We are going to delete the inactive diagnoses for now, under the following 
@@ -63,7 +62,7 @@ syn_diag_active <- list(
   c('v044_dprsv_dsrdr','v007_Dprsv_clsfd'),
   c('v045_anxt_dsrdrs','v006_dsctv_smtfrm'),
   c('v038_Vtmn_dfcnc','v001_Vtmn_dfcnc'),
-  c('v037_Dfcnc_vtmns','v000_Dfcnc_cmpnts'),
+  c('v037_Dfcnc_vtmns','v000_Ddim(subset(d2,ncode>0|v055_Ofc_Vst))fcnc_cmpnts'),
   c('v061_Mls_and_ftg','v025_Mls_and_ftg')
 );
 #' ## Clean up data
@@ -71,6 +70,7 @@ if('d0' %in% rebuild) {
   # Remove impossible START_DATEs (2 of them)
   d0 <- subset(d0,age_at_visit_days > 0);
   # Drop non-informative columns
+  dd$present <- T;
   d0[,cols2drop] <- NULL;
   dd[dd$colname%in%cols2drop,'present'] <- F;
   # English-speaker or not
@@ -84,11 +84,8 @@ if('d0' %in% rebuild) {
   # I think visit type has values of '' instead of NA, so always true
   # UNKNOWN_DATA_ELEMENT = medications
   cols2tf <- subset(
-    dd,rule%in%c('diag','UNKNOWN_DATA_ELEMENT','codemod')&present)$colname;
+    dd,rule%in%c('diag','UNKNOWN_DATA_ELEMENT','code','codemod')&present)$colname;
   d0[,cols2tf]<-sapply(d0[,cols2tf],function(xx) !is.na(xx));
-  # same with office visits
-  d0[,subset(dd,rule=='code'&present)$colname]<-sapply(
-    d0[,subset(dd,rule=='code'&present)$colname],function(xx) !is.na(xx));
   # Flag aberrant values
   ifelse(grepl('\'TNP\'',d0$v064_VTMN_TTL_1990_1_info)
          ,NA,d0$v064_VTMN_TTL_1990_1_info) %>% 
@@ -106,6 +103,8 @@ if('d0' %in% rebuild) {
     mutate(tt=age_at_visit_days
            ,which_event=cumsum(v065_trpng_stmblng)
            ,cens=lead(which_event)
+           ,first=c(1,rep_len(0,length(tt)-1))
+           ,last=c(rep_len(0,length(tt)-1),1)
            # preserving for each individual their age at first visit
            ,agestart=min(age_at_visit_days)) -> d1; # 100072 x 56
   # d1 = dataset with cumulative counts and censoring indicators for all falls
@@ -136,50 +135,61 @@ if('d0' %in% rebuild) {
 #' ## Univariate models
 predictors <- grep('_inactive',names(d2)[sapply(d2,class)=='logical'],inv=T,val=T);
 predictors <- grep('_Ofc_Vst$|_Apntmnt$|_Prcdr$|_trpng_stmblng$',predictors,inv=T,val=T);
-varclus(as.matrix(d2[,predictors])+0,similarity='bothpos') -> vc1;
+d2$npred <- rowSums(d2[,predictors]);
+d3 <- subset(d2,npred>0|v055_Ofc_Vst|v056_Prcdr|cens>0);
+varclus(as.matrix(d3[,predictors])+0,similarity='bothpos') -> vc1;
 plot(vc1$hclust);
 cxm <- coxph(formula = Surv(tt, cens) ~ 1, data = d2);
 wbm <- survreg(formula = Surv(tt, cens) ~ 1, data = d2);
 paste0("update(cxm,.~",predictors,")") %>% 
   sapply(function(xx) parse(text=xx)) %>% 
   sapply(eval,simplify=F) -> unicox;
+unicox3 <- sapply(unicox,update,data=d3,simplify=F);
 paste0("update(wbm,.~",predictors,")") %>% 
   sapply(function(xx) parse(text=xx)) %>% 
   sapply(eval,simplify=F) -> uniwei;
+uniwei3 <- sapply(uniwei,update,data=d3,simplify=F);
 #' ## How good are they? 
 c_unicox <- sapply(unicox,function(xx) summary(xx)$concordance[1]);
+c_unicox3 <- sapply(unicox3,function(xx) summary(xx)$concordance[1]);
 c_uniwei <- sapply(uniwei,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d2)$concord);
+c_uniwei3 <- sapply(uniwei3,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d3)$concord);
 names(unicox) <- names(uniwei) <- names(c_unicox) <- names(c_uniwei) <- predictors;
 #' There seems to be an inverse relationship between concordances for Weibull and Cox
 #' I don't know why that is.
-plot(c_unicox,c_uniwei);
+plot(c_unicox,c_uniwei); point(c_unicox3,c_uniwei3);
 #' Overall, cox (red) seems to perform better.
 plot(sort(c_unicox),type='s',col='red',ylim=range(c(c_unicox,c_uniwei)),ylab='Concordance');
 lines(sort(c_uniwei),type='s');
+lines(sort(c_unicox3),type='s',lty=2,col='red');
+lines(sort(c_uniwei3),type='s',lty=2);
 #' ## Our starting model (for stepwise selection)
-sort(c_unicox) %>%  names %>% paste(collapse='+') %>% 
-  paste('coxph(Surv(tt,cens)~',.,'+agestart,data=d2)') %>% parse(text=.) %>% 
-  eval -> stepstart;
+# sort(c_unicox) %>%  names %>% paste(collapse='+') %>% 
+#   paste('coxph(Surv(tt,cens)~',.,'+agestart,data=d2)') %>% parse(text=.) %>% 
+#   eval -> stepstart;
 #' ## Interactions
 #' There's no point in considering an interaction of binary variables if if its 
 #' component terms hardly ever co-occur. So we need to narrow down the list of
 #' candidate participants in such interactions. We step through each predictor
 #' and count the total number of other predictors that co-occur with it.
-ints<-list();
+ints3<-ints<-list();
 for(kk in predictors) 
   ints[[kk]]<-sum(d2[unlist(d2[,kk]),setdiff(predictors,kk)]+0);
 ints<-sort(unlist(ints));
+for(kk in predictors) 
+  ints3[[kk]]<-sum(d3[unlist(d3[,kk]),setdiff(predictors,kk)]+0);
+ints3<-sort(unlist(ints3));
 plot(ints,type='s');
 intpredictors <- names(tail(ints,5));
 # paste(intpredictors,collapse='+') %>% 
 #   paste0('update.formula(stepstart$call$formula,.~.:(',.,'))') %>% 
 #   formula -> fm_upper;
 paste(predictors,collapse='+') %>% 
-  paste0('stepAIC(update(cxm,.~agestart),scope=list(lower=~1,upper=~.+',.,'),
+  paste0('stepAIC(update(cxm,.~agestart,data=d3),scope=list(lower=~1,upper=~.+',.,'),
          direction="both")') %>% 
   parse(text=.) %>% eval -> coxaic1;
 paste(intpredictors,collapse = '+') %>% 
-  paste0('stepAIC(update(foo,.~.-agestart),
+  paste0('stepAIC(update(coxaic1,.~.-agestart),
          scope=list(lower=~1,upper=~(.+',.,')^2+agestart),direction="both")') %>% 
   parse(text=.) %>% eval -> coxaic2;
 d2$coxaic2 <- predict(coxaic2,type = 'lp');
