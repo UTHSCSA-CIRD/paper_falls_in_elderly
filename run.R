@@ -15,6 +15,7 @@ source('functions.R');
 session <- 'session.rdata';
 inputdata <- 'falls.csv'; datadict <- 'df_dynsql.csv';
 rebuild <- c();
+if(file.exists(session)) load(session);
 if(!exists('dd')) {
   rebuild <- c(rebuild,'dd');
   dd <- read_csv(datadict,na='');
@@ -152,8 +153,8 @@ uniwei3 <- sapply(uniwei,update,data=d3,simplify=F);
 #' ## How good are they? 
 c_unicox <- sapply(unicox,function(xx) summary(xx)$concordance[1]);
 c_unicox3 <- sapply(unicox3,function(xx) summary(xx)$concordance[1]);
-c_uniwei <- sapply(uniwei,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d2)$concord);
-c_uniwei3 <- sapply(uniwei3,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d3)$concord);
+c_uniwei <- 1-sapply(uniwei,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d2)$concord);
+c_uniwei3 <- 1-sapply(uniwei3,function(xx) survConcordance(Surv(tt,cens)~predict(xx),d3)$concord);
 names(unicox) <- names(uniwei) <- names(c_unicox) <- names(c_uniwei) <- predictors;
 #' There seems to be an inverse relationship between concordances for Weibull and Cox
 #' I don't know why that is.
@@ -172,13 +173,10 @@ lines(sort(c_uniwei3),type='s',lty=2);
 #' component terms hardly ever co-occur. So we need to narrow down the list of
 #' candidate participants in such interactions. We step through each predictor
 #' and count the total number of other predictors that co-occur with it.
-ints3<-ints<-list();
+ints<-list();
 for(kk in predictors) 
   ints[[kk]]<-sum(d2[unlist(d2[,kk]),setdiff(predictors,kk)]+0);
 ints<-sort(unlist(ints));
-for(kk in predictors) 
-  ints3[[kk]]<-sum(d3[unlist(d3[,kk]),setdiff(predictors,kk)]+0);
-ints3<-sort(unlist(ints3));
 plot(ints,type='s');
 intpredictors <- names(tail(ints,5));
 # paste(intpredictors,collapse='+') %>% 
