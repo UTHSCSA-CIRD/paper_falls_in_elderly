@@ -25,7 +25,7 @@ cols2drop <- c('start_date','birth_date','sex_cd','v063_VTMN_D_info');
 #' reasoning: if the diagnosis is historical, it isn't a dynamic reflection of
 #' the patient's state. If it is deleted or resolved, then it won't persist in
 #' future visits anyway. Leaving the fall codes in for now, though, pending a 
-#' closer look.
+#' closer look....
 cols2drop <- c(cols2drop,
                subset(dd,rule='diag')$colname %>% 
                  grep('_inactive',.,val=T) %>% 
